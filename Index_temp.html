@@ -1,0 +1,259 @@
+<html xmlns:ng="http://angularjs.org" ng-app lang="en">
+    <head>
+        <meta charset="utf-8">
+        <link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap.no-icons.min.css" rel="stylesheet">
+        <link href="http://netdna.bootstrapcdn.com/font-awesome/2.0/css/font-awesome.css" rel="stylesheet">
+         <script src="Alljs/jquery.min.js"></script>
+        <script src="http://code.angularjs.org/1.1.0/angular.min.js"></script>
+        
+    </head>
+    <body>
+    <script type="text/javascript">
+        var sortingOrder = 'name';
+    </script>
+</div>            
+        <div ng-controller="ctrlRead">
+            <div class="input-append">
+                <input type="text" ng-model="query" ng-change="search()" class="input-large search-query" placeholder="Search">
+            <span class="add-on"><i class="icon-search"></i></span>
+            </div>
+            <table class="table table-striped table-condensed table-hover">
+                <thead>
+                    <tr>
+                        <th class="id">ProductID&nbsp;<a ng-click="sort_by('ProductID')"><i class="icon-sort"></i></a></th>
+                        <th class="Product Name">Product Name&nbsp;<a ng-click="sort_by('ProductName')"><i class="icon-sort"></i></a></th>
+                        <th class="UnitPrice">Unit Price&nbsp;<a ng-click="sort_by('UnitPrice')"><i class="icon-sort"></i></a></th>
+                        <th class="Discontinued">Discontinued&nbsp;<a ng-click="sort_by('Discontinued')"><i class="icon-sort"></i></a></th>
+                        <th class="UnitsInStock">InStock &nbsp;<a ng-click="sort_by('UnitsInStock')"><i class="icon-sort"></i></a></th>                       
+                    </tr>
+                </thead>
+                <tfoot>
+                    <td colspan="6">
+                        <div class="pagination pull-right">
+                            <ul>
+                                <li ng-class="{disabled: currentPage == 0}">
+                                    <a href ng-click="prevPage()">« Prev</a>
+                                </li>
+                                <li ng-repeat="n in range(pagedItems.length)"
+                                    ng-class="{active: n == currentPage}"
+                                ng-click="setPage()">
+                                    <a href ng-bind="n + 1">1</a>
+                                </li>
+                                <li ng-class="{disabled: currentPage == pagedItems.length - 1}">
+                                    <a href ng-click="nextPage()">Next »</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+                </tfoot>
+                <tbody>
+                    <tr ng-repeat="item in pagedItems[currentPage] | orderBy:sortingOrder:reverse">
+                        <td>{{item.ProductID}}</td>
+                        <td>{{item.ProductName}}</td>                      
+                        <td>{{item.UnitPrice}}</td>
+                        <td>{{item.Discontinued}}</td>
+                        <td>{{item.UnitsInStock}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </body>
+</html>
+<script>
+
+    var IsFinished = false;
+
+
+
+    function ctrlRead($scope, $filter) {
+        // init
+        $scope.sortingOrder = sortingOrder;
+        $scope.reverse = false;
+        $scope.filteredItems = [];
+        $scope.groupedItems = [];
+        $scope.itemsPerPage = 5;
+        $scope.pagedItems = [];
+        $scope.currentPage = 0;
+        $scope.items = [ ];
+        var Type;
+        var Url;
+        var Data;
+        var ContentType;
+        var DataType;
+        var ProcessData;
+
+        function WCFJSON() {
+            var userid = "1";
+            Type = "POST";
+            Url = "http://localhost:2401/Service1.svc/AllProduct";
+            Data = '';
+            ContentType = "application/jsonp; charset=utf-8";
+            DataType = "jsonp"; varProcessData = true;
+            CallService();
+        }
+        // Function to call WCF  Service       
+        function CallService() {
+            $.ajax({
+                type: Type, //GET or POST or PUT or DELETE verb
+                url: Url, // Location of the service
+                data: Data, //Data sent to server
+                contentType: ContentType, // content type sent to server
+                dataType: DataType, //Expected data format from server
+                processdata: ProcessData, //True or False
+                success: function (msg) {//On Successfull service call
+                    ServiceSucceeded(msg);
+                },
+                error: ServiceFailed// When Service call fails
+            });
+        }
+
+        function ServiceFailed(result) {
+            alert('Service call failed: ' + result.status + '' + result.statusText);
+            Type = null;
+            varUrl = null;
+            Data = null;
+            ContentType = null;
+            DataType = null;
+            ProcessData = null;
+        }
+
+        function ServiceSucceeded(result) {
+            if (DataType == "jsonp") {
+                // resultObject = result;
+                for (i = 0; i < result.length; i++) {
+                    $scope.items[i] = result[i];                   
+                }
+
+                IsFinished = true;
+            }
+
+        }
+
+        function ServiceFailed(xhr) {
+            alert(xhr.responseText);
+
+            if (xhr.responseText) {
+                var err = xhr.responseText;
+                if (err)
+                    error(err);
+                else
+                    error({ Message: "Unknown server error." })
+            }
+
+            return;
+        }
+
+
+
+        WCFJSON();
+        var searchMatch = function (haystack, needle) {
+            if (!needle) {
+                return true;
+            }
+            return haystack.toLowerCase().indexOf(needle.toLowerCase()) !== -1;
+        };
+
+        // init the filtered items
+        $scope.search = function () {
+            $scope.filteredItems = $filter('filter')($scope.items, function (item) {
+                for (var attr in item) {
+                    if (searchMatch(item[attr], $scope.query))
+                        return true;
+                }
+                return false;
+            });
+            // take care of the sorting order
+            if ($scope.sortingOrder !== '') {
+                $scope.filteredItems = $filter('orderBy')($scope.filteredItems, $scope.sortingOrder, $scope.reverse);
+            }
+            $scope.currentPage = 0;
+            // now group by pages
+            $scope.groupToPages();
+        };
+
+        // calculate page in place
+        $scope.groupToPages = function () {
+            $scope.pagedItems = [];
+
+            for (var i = 0; i < $scope.filteredItems.length; i++) {
+                if (i % $scope.itemsPerPage === 0) {
+                    $scope.pagedItems[Math.floor(i / $scope.itemsPerPage)] = [$scope.filteredItems[i]];
+                } else {
+                    $scope.pagedItems[Math.floor(i / $scope.itemsPerPage)].push($scope.filteredItems[i]);
+                }
+            }
+        };
+
+        $scope.range = function (start, end) {
+            var ret = [];
+            if (!end) {
+                end = start;
+                start = 0;
+            }
+            for (var i = start; i < end; i++) {
+                ret.push(i);
+            }
+            return ret;
+        };
+
+        $scope.prevPage = function () {
+            if ($scope.currentPage > 0) {
+                $scope.currentPage--;
+            }
+        };
+
+        $scope.nextPage = function () {
+            if ($scope.currentPage < $scope.pagedItems.length - 1) {
+                $scope.currentPage++;
+            }
+        };
+
+        $scope.setPage = function () {
+            $scope.currentPage = this.n;
+        };
+
+        // functions have been describe process the data for display
+        $scope.search();
+
+        // change sorting order
+        $scope.sort_by = function (newSortingOrder) {
+            if ($scope.sortingOrder == newSortingOrder)
+                $scope.reverse = !$scope.reverse;
+
+            $scope.sortingOrder = newSortingOrder;
+
+            // icon setup
+            $('th i').each(function () {
+                // icon reset
+                $(this).removeClass().addClass('icon-sort');
+            });
+            if ($scope.reverse)
+                $('th.' + new_sorting_order + ' i').removeClass().addClass('icon-chevron-up');
+            else
+                $('th.' + new_sorting_order + ' i').removeClass().addClass('icon-chevron-down');
+        };
+    };
+
+    
+    
+</script>
+
+
+<script type="text/javascript">
+
+    
+    var int = self.setInterval(function () { doThis() }, 5000);
+    //t = setInterval(doThis, 3000);
+
+
+
+    function doThis() {
+        alert("i am in");
+        ctrlRead.$inject = ['$scope', '$filter'];
+        clearInterval(int);
+    }
+
+
+
+
+</script>
